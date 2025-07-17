@@ -1,0 +1,5 @@
+listen_address: 0.0.0.0:8000
+vendor: "didemo-wallet-maker"
+initial_credentials:
+  LibraryCard: {"some": "json"}
+  DriversLicense: {"more": "json"}

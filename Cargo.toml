@@ -1,0 +1,32 @@
+[workspace]
+resolver = "3"
+members = [
+    "person",
+    "simulations",
+    "wallet",
+]
+
+[workspace.package]
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/abetterinternet/didemo"
+version = "0.1.0"
+
+[workspace.dependencies]
+anyhow = "1"
+axum = "0.8.4"
+clap = { version = "4.5.40", features = ["cargo", "derive", "env"] }
+didemo_person = { version = "0.1.0", path = "person" }
+didemo_wallet = { version = "0.1.0", path = "wallet" }
+reqwest = { version = "0.12.21", default-features = false, features = ["json", "rustls-tls"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+serde_yaml = "0.9.34"
+tokio = { version = "1.45", features = ["full", "tracing"] }
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = [
+        "json",
+        "env-filter",
+        "std",
+        "fmt",
+] }
