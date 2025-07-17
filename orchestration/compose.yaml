@@ -1,0 +1,32 @@
+# Docker compose file for bringing up a simple digital identity environment.
+
+services:
+  person:
+    image: didemo-person:latest
+    entrypoint: /didemo-person
+    ports:
+      - "8000:8000"
+    restart: always
+    environment:
+      CONFIG_FILE: /person-config-file
+      RUST_LOG: info
+    configs:
+      - person-config-file
+
+  wallet:
+    image: didemo-person:latest
+    entrypoint: /didemo-wallet
+    ports:
+      - "8001:8000"
+    restart: always
+    environment:
+      CONFIG_FILE: /wallet-config-file
+      RUST_LOG: info
+    configs:
+      - wallet-config-file
+
+configs:
+  person-config-file:
+    file: ../person/config/sample.yaml
+  wallet-config-file:
+    file: ../wallet/config/sample.yaml
