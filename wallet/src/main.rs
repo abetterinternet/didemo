@@ -3,7 +3,14 @@ use axum::{Json, Router, extract::State, routing::get};
 use clap::Parser;
 use didemo_wallet::CredentialType;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fs::File, io::BufReader, net::SocketAddr, path::PathBuf};
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::BufReader,
+    net::{Ipv4Addr, SocketAddr},
+    path::PathBuf,
+};
+use tokio::signal::unix::{SignalKind, signal};
 
 #[derive(Parser, Debug)]
 #[command(name = "wallet", version, about)]
@@ -17,6 +24,7 @@ struct Cli {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct WalletConfiguration {
     /// Address on which this server should listen for connections.
+    #[serde(default = "default_listener")]
     listen_address: SocketAddr,
 
     /// The wallet vendor's name.
@@ -54,7 +62,9 @@ async fn main() -> Result<(), anyhow::Error> {
 
     tracing::info!("started the wallet simulator");
 
-    axum::serve(listener, routes).await?;
+    axum::serve(listener, routes)
+        .with_graceful_shutdown(shutdown_signal())
+        .await?;
 
     Ok(())
 }
@@ -71,4 +81,29 @@ async fn credentials(
 ) -> Json<HashMap<CredentialType, String>> {
     tracing::info!("serving credentials endpoint");
     Json(config.initial_credentials)
+}
+
+fn default_listener() -> SocketAddr {
+    // unwrap safety: cannot fail with constant string
+    SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 80)
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    let terminate = async {
+        signal(SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
 }

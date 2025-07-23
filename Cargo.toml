@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
+    "issuer",
     "person",
     "simulations",
     "wallet",
@@ -16,6 +17,7 @@ version = "0.1.0"
 anyhow = "1"
 axum = "0.8.4"
 clap = { version = "4.5.40", features = ["cargo", "derive", "env"] }
+didemo_issuer = { version = "0.1.0", path = "issuer" }
 didemo_person = { version = "0.1.0", path = "person" }
 didemo_wallet = { version = "0.1.0", path = "wallet" }
 reqwest = { version = "0.12.21", default-features = false, features = ["json", "rustls-tls"] }

@@ -1,7 +1,6 @@
 use anyhow::Context;
 use axum::{Json, Router, extract::State, routing::get};
 use clap::Parser;
-use didemo_person::PresentedCredential;
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
@@ -12,7 +11,7 @@ use std::{
 use tokio::signal::unix::{SignalKind, signal};
 
 #[derive(Parser, Debug)]
-#[command(name = "person", version, about)]
+#[command(name = "issuer", version, about)]
 struct Cli {
     /// Path to configuration file.
     #[arg(long, env = "CONFIG_FILE")]
@@ -21,16 +20,13 @@ struct Cli {
 
 /// Configuration for a person.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct PersonConfiguration {
+struct IssuerConfiguration {
     /// Address on which this server should listen for connections.
     #[serde(default = "default_listener")]
     listen_address: SocketAddr,
 
-    /// The person's name.
-    name: String,
-
-    /// The person's age in years.
-    age: u32,
+    /// A label identifying the issuer.
+    label: String,
 }
 
 #[tokio::main]
@@ -42,7 +38,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let config_file = File::open(cli.config).context("failed to open config file")?;
 
-    let config: PersonConfiguration = serde_yaml::from_reader(BufReader::new(config_file))
+    let config: IssuerConfiguration = serde_yaml::from_reader(BufReader::new(config_file))
         .context("failed to parse config file")?;
 
     let listener = tokio::net::TcpListener::bind(&config.listen_address)
@@ -54,11 +50,9 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let routes = Router::new()
         .route("/config", get(serve_config))
-        .route("/present", get(present))
-        .route("/wallet-config", get(wallet_config))
         .with_state(config);
 
-    tracing::info!("started the person simulator");
+    tracing::info!("started the issuer simulator");
 
     axum::serve(listener, routes)
         .with_graceful_shutdown(shutdown_signal())
@@ -68,28 +62,9 @@ async fn main() -> Result<(), anyhow::Error> {
 }
 
 /// Print the configuration.
-async fn serve_config(State(config): State<PersonConfiguration>) -> Json<PersonConfiguration> {
+async fn serve_config(State(config): State<IssuerConfiguration>) -> Json<IssuerConfiguration> {
     tracing::info!("serving config endpoint");
     Json(config)
-}
-
-/// Present this person's credentials.
-async fn present(State(config): State<PersonConfiguration>) -> Json<PresentedCredential> {
-    tracing::info!("presenting credential");
-    Json(PresentedCredential {
-        name: config.name,
-        age: config.age,
-    })
-}
-
-async fn wallet_config() -> String {
-    tracing::info!("serving wallet config");
-    reqwest::get("http://issuer/config")
-        .await
-        .unwrap()
-        .text()
-        .await
-        .unwrap()
 }
 
 fn default_listener() -> SocketAddr {

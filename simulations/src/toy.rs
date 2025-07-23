@@ -40,4 +40,28 @@ async fn talk_to_person_and_wallet() {
             ),
         ])
     );
+
+    // Dump issuer config
+    let issuer_config = reqwest::get("http://0.0.0.0:8002/config")
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert_eq!(
+        issuer_config,
+        "{\"listen_address\":\"0.0.0.0:8000\",\"label\":\"test-issuer-1\"}"
+    );
+
+    // Get wallet config via the person
+    let wallet_config = reqwest::get("http://0.0.0.0:8000/wallet-config")
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert_eq!(
+        wallet_config,
+        "{\"listen_address\":\"0.0.0.0:8000\",\"label\":\"test-issuer-1\"}"
+    );
 }
