@@ -16,7 +16,7 @@ version = "0.1.0"
 
 [workspace.dependencies]
 anyhow = "1"
-axum = "0.8.4"
+axum = { version = "0.8.4", features = ["macros"] }
 clap = { version = "4.5.40", features = ["cargo", "derive", "env"] }
 didemo_common = { version = "0.1.0", path = "common" }
 didemo_issuer = { version = "0.1.0", path = "issuer" }

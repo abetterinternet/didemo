@@ -6,7 +6,8 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-didemo_person.workspace = true
+didemo_common.workspace = true
+didemo_issuer.workspace = true
 didemo_wallet.workspace = true
 reqwest.workspace = true
 serde.workspace = true

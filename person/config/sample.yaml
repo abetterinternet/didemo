@@ -1,2 +1,5 @@
 name: "Homer Simpson"
-age: 35
+home_address: "742 Evergreen Terrace, Springfield, OH"
+organ_donor: true
+birthdate: 1753729603
+wallet_hostname: wallet

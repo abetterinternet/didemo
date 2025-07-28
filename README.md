@@ -36,3 +36,9 @@ TODO: describe the actors
 
 You can swap out any protocol actor with a different implementation, provided it implements the
 expected HTTP RPC interface. That's documented in each actor's crate.
+
+## Workspace layout
+
+`didemo_common` contains items used by all protocol actors, including definitions of HTTP messages.
+All actor crates will depend on `didemo_common` but in order to avoid dependency cycles,
+*actor crates should not depend on one another*.

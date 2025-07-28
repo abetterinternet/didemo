@@ -25,22 +25,36 @@ services:
     configs:
       - wallet-config-file
 
-  issuer:
+  issuer-dmv:
     image: didemo-actors:latest
     entrypoint: /didemo-issuer
     ports:
       - "8002:80"
     restart: always
     environment:
-      CONFIG_FILE: /issuer-config-file
+      CONFIG_FILE: /issuer-dmv-config-file
       RUST_LOG: info
     configs:
-      - issuer-config-file
+      - issuer-dmv-config-file
+
+  issuer-library:
+    image: didemo-actors:latest
+    entrypoint: /didemo-issuer
+    ports:
+      - "8003:80"
+    restart: always
+    environment:
+      CONFIG_FILE: /issuer-library-config-file
+      RUST_LOG: info
+    configs:
+      - issuer-library-config-file
 
 configs:
   person-config-file:
     file: ../person/config/sample.yaml
   wallet-config-file:
     file: ../wallet/config/sample.yaml
-  issuer-config-file:
-    file: ../issuer/config/sample.yaml
+  issuer-dmv-config-file:
+    file: ../issuer/config/dmv.yaml
+  issuer-library-config-file:
+    file: ../issuer/config/library.yaml
