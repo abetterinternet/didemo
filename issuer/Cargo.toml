@@ -10,6 +10,7 @@ description = "Simulation of an issuer in a digital identity deployment"
 anyhow.workspace = true
 axum.workspace = true
 clap.workspace = true
+didemo_common.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true

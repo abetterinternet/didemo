@@ -12,7 +12,7 @@ they can talk to each other on. To get started:
 - Build Docker image containing all the actors: `docker buildx build . --tag didemo-actors:latest`
 - Launch the actors: `docker compose -f orchestration/compose.yaml up`
 - Run the tests in the `didemo_simulations` package to simulate various interactions of interest:
-  `cargo test --package simulations`
+  `cargo test --package didemo_simulations`
 
 ## Simulation actors
 

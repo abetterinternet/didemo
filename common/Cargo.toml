@@ -1,16 +1,15 @@
 [package]
-name = "didemo_person"
+name = "didemo_common"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Simulation of a person in a digital identity deployment"
+description = "Components shared by actors in a digital identity simulation environment"
 
 [dependencies]
 anyhow.workspace = true
 axum.workspace = true
 clap.workspace = true
-didemo_common.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true

@@ -7,6 +7,7 @@ WORKDIR /src
 
 FROM chef AS planner
 COPY Cargo.toml Cargo.lock /src/
+COPY common /src/common
 COPY issuer /src/issuer
 COPY person /src/person
 COPY simulations /src/simulations
@@ -16,16 +17,19 @@ RUN cargo chef prepare --recipe-path recipe.json
 FROM chef AS builder
 COPY --from=planner /src/recipe.json /src/recipe.json
 RUN cargo chef cook --release \
+    --package didemo_common \
     --package didemo_issuer \
     --package didemo_person \
     --package didemo_wallet
 COPY Cargo.toml Cargo.lock /src/
+COPY common /src/common
 COPY issuer /src/issuer
 COPY person /src/person
 COPY wallet /src/wallet
 ARG GIT_REVISION=unknown
 ENV GIT_REVISION=${GIT_REVISION}
 RUN cargo build --release \
+    --package didemo_common \
     --package didemo_issuer \
     --package didemo_person \
     --package didemo_wallet

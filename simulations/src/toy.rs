@@ -50,7 +50,7 @@ async fn talk_to_person_and_wallet() {
         .unwrap();
     assert_eq!(
         issuer_config,
-        "{\"listen_address\":\"0.0.0.0:8000\",\"label\":\"test-issuer-1\"}"
+        "{\"listen_address\":\"0.0.0.0:80\",\"label\":\"test-issuer-1\"}"
     );
 
     // Get wallet config via the person
@@ -62,6 +62,6 @@ async fn talk_to_person_and_wallet() {
         .unwrap();
     assert_eq!(
         wallet_config,
-        "{\"listen_address\":\"0.0.0.0:8000\",\"label\":\"test-issuer-1\"}"
+        "{\"listen_address\":\"0.0.0.0:80\",\"label\":\"test-issuer-1\"}"
     );
 }
