@@ -17,6 +17,14 @@ pub struct Credential {
     /// Opaque JSON encoding of the credential. Can be decoded based on the value of
     /// `credential_type`.
     pub encoded_credential: String,
+    /// BBS signature over the messages making up this credential.
+    pub signature: Vec<u8>,
+}
+
+impl Credential {
+    pub fn bbs_messages(&self) -> Vec<Vec<u8>> {
+        todo!("construct vector of BBS messages to sign, verify or prove for this credential")
+    }
 }
 
 /// A library card.

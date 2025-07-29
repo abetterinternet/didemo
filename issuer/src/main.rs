@@ -5,6 +5,7 @@ use axum::{
     routing::{get, put},
 };
 use didemo_common::{
+    bbs::bbs_keypair,
     config::{CommonConfiguration, Configuration},
     credential::{
         Credential, CredentialType, DriversLicense, DriversLicenseRequest, LibraryCard,
@@ -12,6 +13,10 @@ use didemo_common::{
     },
     messages::issuer::IssueCredentialRequest,
     router::{AppError, actor_main},
+};
+use pairing_crypto::bbs::{
+    BbsSignRequest,
+    ciphersuites::{bls12_381::KeyPair, bls12_381_g1_sha_256::sign},
 };
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
@@ -41,6 +46,7 @@ struct Issuer {
     config: IssuerConfiguration,
     http_client: Client,
     last_serial_number: u64,
+    bbs_keypair: KeyPair,
 }
 
 #[tokio::main]
@@ -49,10 +55,15 @@ async fn main() -> Result<(), anyhow::Error> {
         let http_client = client_builder.build()?;
 
         let actor_name = format!("issuer/{}", config.label);
+
+        // Using this fixed seed is not secure but this is harmless in the simulation setup.
+        let bbs_keypair = bbs_keypair(&actor_name)?;
+
         let issuer = Issuer {
             config,
             http_client,
             last_serial_number: 0,
+            bbs_keypair,
         };
 
         let routes = Router::new()
@@ -85,7 +96,6 @@ async fn issue_credential(
 
     // TODO: other policy checks? Uniqueness of certain fields?
 
-    // TODO: actual cryptographic signing!
     if !issuer
         .config
         .credential_types
@@ -100,35 +110,71 @@ async fn issue_credential(
 
     issuer.last_serial_number += 1;
 
+    let (bbs_messages, encoded_credential) = match request.credential_type {
+        CredentialType::LibraryCard => {
+            let library_card_request: LibraryCardRequest =
+                serde_json::from_str(&request.requested_credential)
+                    .context("failed to deserialize library card request")?;
+
+            let messages = Vec::from([
+                issuer.config.label.clone().into_bytes(),
+                library_card_request.holder_name.clone().into_bytes(),
+                issuer.last_serial_number.to_be_bytes().to_vec(),
+            ]);
+            let issued_credential = serde_json::to_string(&LibraryCard {
+                library_name: issuer.config.label.clone(),
+                holder_name: library_card_request.holder_name,
+                serial_number: issuer.last_serial_number,
+            })
+            .context("failed to serialize library card")?;
+
+            (messages, issued_credential)
+        }
+        CredentialType::DriversLicense => {
+            let drivers_license_request: DriversLicenseRequest =
+                serde_json::from_str(&request.requested_credential)
+                    .context("failed to deserialize driver's license request")?;
+
+            let messages = Vec::from([
+                issuer.config.label.clone().into_bytes(),
+                drivers_license_request.holder_name.clone().into_bytes(),
+                issuer.last_serial_number.to_be_bytes().to_vec(),
+                drivers_license_request.home_address.clone().into_bytes(),
+                if drivers_license_request.organ_donor {
+                    Vec::from([1])
+                } else {
+                    Vec::from([0])
+                },
+                drivers_license_request.birthdate.to_be_bytes().to_vec(),
+            ]);
+            let issued_credential = serde_json::to_string(&DriversLicense {
+                issuing_jurisdiction: issuer.config.label.clone(),
+                holder_name: drivers_license_request.holder_name,
+                serial_number: issuer.last_serial_number,
+                home_address: drivers_license_request.home_address,
+                organ_donor: drivers_license_request.organ_donor,
+                birthdate: drivers_license_request.birthdate,
+            })
+            .context("failed to serialize driver's license")?;
+
+            (messages, issued_credential)
+        }
+    };
+
+    let signature = sign(&BbsSignRequest {
+        secret_key: &issuer.bbs_keypair.secret_key.to_bytes(),
+        public_key: &issuer.bbs_keypair.public_key.to_octets(),
+        // TODO: can we put something useful in the signature header? Issuer identity?
+        header: None,
+        messages: Some(&bbs_messages),
+    })
+    .context("failed to sign messages")?
+    .to_vec();
+
     let issued_credential = Credential {
         credential_type: request.credential_type,
-        encoded_credential: match request.credential_type {
-            CredentialType::LibraryCard => {
-                let library_card_request: LibraryCardRequest =
-                    serde_json::from_str(&request.requested_credential)
-                        .context("failed to deserialize library card request")?;
-                serde_json::to_string(&LibraryCard {
-                    library_name: issuer.config.label.clone(),
-                    holder_name: library_card_request.holder_name,
-                    serial_number: issuer.last_serial_number,
-                })
-                .context("failed to serialize library card")?
-            }
-            CredentialType::DriversLicense => {
-                let drivers_license_request: DriversLicenseRequest =
-                    serde_json::from_str(&request.requested_credential)
-                        .context("failed to deserialize driver's license request")?;
-                serde_json::to_string(&DriversLicense {
-                    issuing_jurisdiction: issuer.config.label.clone(),
-                    holder_name: drivers_license_request.holder_name,
-                    serial_number: issuer.last_serial_number,
-                    home_address: drivers_license_request.home_address,
-                    organ_donor: drivers_license_request.organ_donor,
-                    birthdate: drivers_license_request.birthdate,
-                })
-                .context("failed to serialize driver's license")?
-            }
-        },
+        encoded_credential,
+        signature,
     };
 
     let wallet_response = issuer

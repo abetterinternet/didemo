@@ -10,6 +10,7 @@ description = "Components shared by actors in a digital identity simulation envi
 anyhow.workspace = true
 axum.workspace = true
 clap.workspace = true
+pairing_crypto.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
