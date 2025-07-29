@@ -9,7 +9,7 @@ use didemo_common::{
     credential::{CredentialType, DriversLicenseRequest, LibraryCardRequest},
     messages::{
         issuer::IssueCredentialRequest,
-        person::{ObtainCredentialRequest, PresentedCredential},
+        person::{ObtainCredentialRequest, Proof, ProofRequest},
     },
     router::{AppError, actor_main},
 };
@@ -56,7 +56,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
         let routes = Router::new()
             .route("/credential", post(obtain_credential))
-            .route("/present", get(present))
+            .route("/proof", get(prove))
             .with_state((config, client));
 
         Ok((actor_name, routes))
@@ -110,14 +110,25 @@ async fn obtain_credential(
     Ok(StatusCode::CREATED)
 }
 
-/// Present this person's credentials.
+/// Prove to a verifier that a message is signed.
 #[axum::debug_handler]
-async fn present(
-    State((config, _http_client)): State<(PersonConfiguration, Client)>,
-) -> Json<PresentedCredential> {
-    tracing::info!("presenting credential");
-    Json(PresentedCredential {
-        name: config.name,
-        birthdate: config.birthdate,
-    })
+async fn prove(
+    State((config, http_client)): State<(PersonConfiguration, Client)>,
+    Json(proof_request): Json<ProofRequest>,
+) -> Result<Json<Proof>, AppError> {
+    let proof = http_client
+        .get(format!("http://{}/proof", config.wallet_hostname))
+        .json(&proof_request)
+        .send()
+        .await
+        .context("failed to send prove request to wallet")?
+        // We don't really need to parse the wallet's response since we're just going to send it
+        // along unmodified but it's nice to validate the encoding, I suppose.
+        .json()
+        .await
+        .context("failed to deserialize proof from wallet")?;
+
+    // TODO: what else might the person do here? It's a little silly to just proxy requests to the
+    // wallet.
+    Ok(Json(proof))
 }

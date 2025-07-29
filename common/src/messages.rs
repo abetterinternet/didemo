@@ -26,14 +26,37 @@ pub mod person {
     use crate::credential::CredentialType;
     use serde::{Deserialize, Serialize};
 
-    /// A person's credential.
+    /// A request for the person to prove a message.
     #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-    pub struct PresentedCredential {
-        /// The person's name.
-        pub name: String,
+    pub struct ProofRequest {
+        /// The type of proof requested.
+        pub proof_type: ProofType,
+        // TODO: should there be a way for the verifier to indicate what issuers it trusts?
+        // TODO: some parameters here that get folded into the presentation header?
+    }
 
-        /// The person's age in seconds since the Unix epoch.
-        pub birthdate: u64,
+    /// A type of proof.
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+    pub enum ProofType {
+        /// Proof that the holder holds a driver's license.
+        HoldsDriversLicense,
+        /// Proof that the holder holds a library card.
+        HoldsLibraryCard,
+        /// Proof of the holder's name (discloses a name message to verifier).
+        HolderName,
+    }
+
+    /// A proof of some message, corresponding to a ProofRequest.
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+    pub struct Proof {
+        /// The header from the BBS signature.
+        pub header: Vec<u8>,
+
+        /// The BBS proof.
+        pub proof: Vec<u8>,
+
+        /// Messages disclosed in the proof. Tuple of message index and message.
+        pub disclosed_messages: Vec<(usize, Vec<u8>)>,
     }
 
     /// A request for a person to obtain a credential.

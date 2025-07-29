@@ -82,7 +82,6 @@ async fn issue_credential(
     State(issuer): State<Arc<Mutex<Issuer>>>,
     Json(request): Json<IssueCredentialRequest>,
 ) -> Result<StatusCode, AppError> {
-    tracing::info!("issuing a credential");
     let mut issuer = issuer.lock().await;
 
     // This is where an issuer would perform actual verification that the person is a legitimate
@@ -187,6 +186,12 @@ async fn issue_credential(
         )
         .into());
     }
+
+    tracing::info!(
+        credential_type = ?request.credential_type,
+        wallet_hostname = request.wallet_hostname,
+        "issued credential"
+    );
 
     Ok(StatusCode::CREATED)
 }

@@ -1,6 +1,7 @@
 use didemo_common::{
+    bbs::BbsKeypair,
     credential::{Credential, CredentialType, DriversLicense, LibraryCard},
-    messages::person::ObtainCredentialRequest,
+    messages::person::{ObtainCredentialRequest, Proof, ProofRequest, ProofType},
 };
 use reqwest::StatusCode;
 
@@ -82,6 +83,63 @@ async fn issue_credential() {
             }
         };
     }
+
+    // Obtain proof that person holds a driver's license. We learn nothing about the contents of the
+    // license, just that one was issued by the issuer identified in the BBS signature header.
+    let dl_possession_proof_req = ProofRequest {
+        proof_type: ProofType::HoldsDriversLicense,
+    };
+    let dl_possession_proof: Proof = client
+        .get("http://0.0.0.0:8000/proof")
+        .json(&dl_possession_proof_req)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+
+    let issuer_keypair =
+        BbsKeypair::new(str::from_utf8(&dl_possession_proof.header).unwrap()).unwrap();
+
+    issuer_keypair
+        .verify_proof(
+            dl_possession_proof.header,
+            dl_possession_proof.disclosed_messages.clone(),
+            dl_possession_proof.proof,
+        )
+        .unwrap();
+
+    assert!(dl_possession_proof.disclosed_messages.is_empty());
+
+    // Obtain proof of the person's name. We learn nothing else from their driver's license.
+    let name_proof_req = ProofRequest {
+        proof_type: ProofType::HolderName,
+    };
+    let name_proof: Proof = client
+        .get("http://0.0.0.0:8000/proof")
+        .json(&name_proof_req)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+
+    let issuer_keypair = BbsKeypair::new(str::from_utf8(&name_proof.header).unwrap()).unwrap();
+
+    issuer_keypair
+        .verify_proof(
+            name_proof.header,
+            name_proof.disclosed_messages.clone(),
+            name_proof.proof,
+        )
+        .unwrap();
+
+    assert_eq!(
+        name_proof.disclosed_messages,
+        Vec::from([(1, "Homer Simpson".as_bytes().to_vec())])
+    );
 
     // TODO: simulate the person visiting a website and proving something to the relying party
 }

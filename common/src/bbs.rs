@@ -2,10 +2,10 @@
 
 use anyhow::{Context, anyhow};
 use pairing_crypto::bbs::{
-    BbsSignRequest, BbsVerifyRequest,
+    BbsProofGenRevealMessageRequest, BbsProofVerifyRequest, BbsSignRequest, BbsVerifyRequest,
     ciphersuites::{
-        bls12_381::KeyPair,
-        bls12_381_g1_sha_256::{sign, verify},
+        bls12_381::{BBS_BLS12381G1_SIGNATURE_LENGTH, KeyPair},
+        bls12_381_g1_sha_256::{proof_gen, proof_verify, sign, verify},
     },
 };
 
@@ -57,17 +57,77 @@ impl BbsKeypair {
         header: Vec<u8>,
         messages: Vec<Vec<u8>>,
         signature: Vec<u8>,
-    ) -> Result<bool, anyhow::Error> {
-        verify(&BbsVerifyRequest {
+    ) -> Result<(), anyhow::Error> {
+        if verify(&BbsVerifyRequest {
             public_key: &self.keypair.public_key.to_octets(),
             header: Some(header),
             messages: Some(&messages),
-            signature: &signature
-                .try_into()
-                .map_err(|_| anyhow!("failed to convert signature to array"))?,
+            signature: &signature_to_array(signature)?,
         })
-        .context("failed to verify BBS signature")
+        .context("failed to verify BBS signature")?
+        {
+            Ok(())
+        } else {
+            Err(anyhow!("BBS signature invalid"))
+        }
     }
+
+    /// Prove one or more messages from a signature. Messages are tuples; the boolean indicates
+    /// whether the message should be revealed with the proof.
+    pub fn prove(
+        &self,
+        header: Vec<u8>,
+        messages: Vec<(bool, Vec<u8>)>,
+        signature: Vec<u8>,
+    ) -> Result<Vec<u8>, anyhow::Error> {
+        let proof_gen_reveals: Vec<_> = messages
+            .into_iter()
+            .map(|(reveal, value)| BbsProofGenRevealMessageRequest { reveal, value })
+            .collect();
+        proof_gen(&pairing_crypto::bbs::BbsProofGenRequest {
+            public_key: &self.keypair.public_key.to_octets(),
+            header: Some(header),
+            messages: Some(&proof_gen_reveals),
+            signature: &signature_to_array(signature)?,
+            // TODO: Most definitely want to bind the proof to something like say an authentication
+            // session or at least a particular verifier.
+            presentation_header: None,
+            // why on earth is this an optional boolean? What does None mean that false wouldn't?!
+            verify_signature: Some(false),
+        })
+        .context("failed to BBS prove messages")
+    }
+
+    /// Verify one or more messages against a signature
+    pub fn verify_proof(
+        &self,
+        header: Vec<u8>,
+        disclosed_messages: Vec<(usize, Vec<u8>)>,
+        proof: Vec<u8>,
+    ) -> Result<(), anyhow::Error> {
+        if proof_verify(&BbsProofVerifyRequest {
+            public_key: &self.keypair.public_key.to_octets(),
+            header: Some(header),
+            // TODO: presentation header binding to context
+            presentation_header: None,
+            proof: &proof,
+            messages: Some(&disclosed_messages),
+        })
+        .context("failed to verify BBS proofs")?
+        {
+            Ok(())
+        } else {
+            Err(anyhow!("BBS proof invalid"))
+        }
+    }
+}
+
+fn signature_to_array(
+    signature: Vec<u8>,
+) -> Result<[u8; BBS_BLS12381G1_SIGNATURE_LENGTH], anyhow::Error> {
+    signature
+        .try_into()
+        .map_err(|_| anyhow!("failed to convert signature to array"))
 }
 
 #[cfg(test)]
@@ -81,6 +141,7 @@ mod tests {
 
         assert_eq!(keypair, keypair_again);
     }
+
     #[test]
     fn keygen_differs_by_actor_name() {
         let keypair = BbsKeypair::new("test-1").unwrap();
