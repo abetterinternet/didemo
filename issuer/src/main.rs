@@ -5,18 +5,14 @@ use axum::{
     routing::{get, put},
 };
 use didemo_common::{
-    bbs::bbs_keypair,
+    bbs::BbsKeypair,
     config::{CommonConfiguration, Configuration},
     credential::{
-        Credential, CredentialType, DriversLicense, DriversLicenseRequest, LibraryCard,
-        LibraryCardRequest,
+        Credential, CredentialSignature, CredentialType, DriversLicense, DriversLicenseRequest,
+        LibraryCard, LibraryCardRequest,
     },
     messages::issuer::IssueCredentialRequest,
     router::{AppError, actor_main},
-};
-use pairing_crypto::bbs::{
-    BbsSignRequest,
-    ciphersuites::{bls12_381::KeyPair, bls12_381_g1_sha_256::sign},
 };
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
@@ -44,9 +40,10 @@ impl Configuration for IssuerConfiguration {
 
 struct Issuer {
     config: IssuerConfiguration,
+    actor_name: String,
     http_client: Client,
     last_serial_number: u64,
-    bbs_keypair: KeyPair,
+    bbs_keypair: BbsKeypair,
 }
 
 #[tokio::main]
@@ -57,10 +54,11 @@ async fn main() -> Result<(), anyhow::Error> {
         let actor_name = format!("issuer/{}", config.label);
 
         // Using this fixed seed is not secure but this is harmless in the simulation setup.
-        let bbs_keypair = bbs_keypair(&actor_name)?;
+        let bbs_keypair = BbsKeypair::new(&actor_name)?;
 
         let issuer = Issuer {
             config,
+            actor_name: actor_name.clone(),
             http_client,
             last_serial_number: 0,
             bbs_keypair,
@@ -161,20 +159,15 @@ async fn issue_credential(
         }
     };
 
-    let signature = sign(&BbsSignRequest {
-        secret_key: &issuer.bbs_keypair.secret_key.to_bytes(),
-        public_key: &issuer.bbs_keypair.public_key.to_octets(),
-        // TODO: can we put something useful in the signature header? Issuer identity?
-        header: None,
-        messages: Some(&bbs_messages),
-    })
-    .context("failed to sign messages")?
-    .to_vec();
+    let header = issuer.actor_name.as_bytes().to_vec();
+    let signature = issuer
+        .bbs_keypair
+        .sign(header.clone(), bbs_messages.clone())?;
 
     let issued_credential = Credential {
         credential_type: request.credential_type,
         encoded_credential,
-        signature,
+        signature: CredentialSignature { signature, header },
     };
 
     let wallet_response = issuer

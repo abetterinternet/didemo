@@ -10,21 +10,30 @@ pub enum CredentialType {
 }
 
 /// An issued credential.
-#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Credential {
     /// The type of the credential.
     pub credential_type: CredentialType,
     /// Opaque JSON encoding of the credential. Can be decoded based on the value of
     /// `credential_type`.
     pub encoded_credential: String,
-    /// BBS signature over the messages making up this credential.
-    pub signature: Vec<u8>,
+    /// BBS signature over the credential.
+    pub signature: CredentialSignature,
 }
 
 impl Credential {
     pub fn bbs_messages(&self) -> Vec<Vec<u8>> {
         todo!("construct vector of BBS messages to sign, verify or prove for this credential")
     }
+}
+
+/// A signature over an issued credential.
+#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
+pub struct CredentialSignature {
+    /// The BBS signature over the messages constituting the credential.
+    pub signature: Vec<u8>,
+    /// The header of the signature (not to be confused with presentation_header).
+    pub header: Vec<u8>,
 }
 
 /// A library card.

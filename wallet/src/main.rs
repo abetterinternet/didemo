@@ -1,11 +1,13 @@
+use anyhow::{Context, anyhow};
 use axum::{
     Json, Router,
     extract::State,
     routing::{get, put},
 };
 use didemo_common::{
+    bbs::BbsKeypair,
     config::{CommonConfiguration, Configuration},
-    credential::Credential,
+    credential::{Credential, CredentialType, DriversLicense, LibraryCard},
     router::{AppError, actor_main},
 };
 use reqwest::{Client, StatusCode};
@@ -77,9 +79,50 @@ async fn store_credential(
 ) -> Result<StatusCode, AppError> {
     // TODO: policy checks? For uniqueness on certain keys?
 
-    // TODO: Verify that issuer is trusted? Or is that not something wallets should do?
+    let messages = match request.credential_type {
+        CredentialType::LibraryCard => {
+            let decoded_credential: LibraryCard =
+                serde_json::from_str(&request.encoded_credential).unwrap();
 
-    // TODO: cryptography: check signature somehow?
+            Vec::from([
+                decoded_credential.library_name.into_bytes(),
+                decoded_credential.holder_name.into_bytes(),
+                decoded_credential.serial_number.to_be_bytes().to_vec(),
+            ])
+        }
+        CredentialType::DriversLicense => {
+            let decoded_credential: DriversLicense =
+                serde_json::from_str(&request.encoded_credential).unwrap();
+
+            Vec::from([
+                decoded_credential.issuing_jurisdiction.into_bytes(),
+                decoded_credential.holder_name.into_bytes(),
+                decoded_credential.serial_number.to_be_bytes().to_vec(),
+                decoded_credential.home_address.into_bytes(),
+                if decoded_credential.organ_donor {
+                    Vec::from([1])
+                } else {
+                    Vec::from([0])
+                },
+                decoded_credential.birthdate.to_be_bytes().to_vec(),
+            ])
+        }
+    };
+
+    // TODO: Verify that issuer is trusted? For now we just derive the keys based on the BBS
+    // signature header.
+    let issuer_keypair = BbsKeypair::new(
+        str::from_utf8(&request.signature.header)
+            .context("failed to convert BBS header to issuer name")?,
+    )?;
+
+    if !issuer_keypair.verify(
+        request.signature.header.clone(),
+        messages,
+        request.signature.signature.clone(),
+    )? {
+        return Err(anyhow!("invalid signature on incoming credential").into());
+    }
 
     wallet.lock().unwrap().credentials.push(request);
 

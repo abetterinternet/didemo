@@ -1,9 +1,7 @@
 use didemo_common::{
-    bbs::bbs_keypair,
     credential::{Credential, CredentialType, DriversLicense, LibraryCard},
     messages::person::ObtainCredentialRequest,
 };
-use pairing_crypto::bbs::{BbsVerifyRequest, ciphersuites::bls12_381_g1_sha_256::verify};
 use reqwest::StatusCode;
 
 #[tokio::test]
@@ -50,7 +48,7 @@ async fn issue_credential() {
     let mut saw_drivers = false;
     let mut saw_library = false;
     for credential in &wallet_credentials {
-        let (keypair, signature, messages) = match credential.credential_type {
+        match credential.credential_type {
             CredentialType::LibraryCard => {
                 assert!(!saw_library, "multiple library cards present");
                 saw_library = true;
@@ -64,16 +62,6 @@ async fn issue_credential() {
                         serial_number: 1,
                     },
                 );
-
-                (
-                    bbs_keypair("issuer/library-1").unwrap(),
-                    credential.signature.clone(),
-                    Vec::from([
-                        decoded_credential.library_name.into_bytes(),
-                        decoded_credential.holder_name.into_bytes(),
-                        decoded_credential.serial_number.to_be_bytes().to_vec(),
-                    ]),
-                )
             }
             CredentialType::DriversLicense => {
                 assert!(!saw_drivers, "multiple drivers licenses present");
@@ -91,34 +79,8 @@ async fn issue_credential() {
                         birthdate: 1753729603,
                     }
                 );
-
-                (
-                    bbs_keypair("issuer/dmv-1").unwrap(),
-                    credential.signature.clone(),
-                    Vec::from([
-                        decoded_credential.issuing_jurisdiction.into_bytes(),
-                        decoded_credential.holder_name.into_bytes(),
-                        decoded_credential.serial_number.to_be_bytes().to_vec(),
-                        decoded_credential.home_address.into_bytes(),
-                        if decoded_credential.organ_donor {
-                            Vec::from([1])
-                        } else {
-                            Vec::from([0])
-                        },
-                        decoded_credential.birthdate.to_be_bytes().to_vec(),
-                    ]),
-                )
             }
         };
-
-        let result = verify(&BbsVerifyRequest {
-            public_key: &keypair.public_key.to_octets(),
-            header: None,
-            messages: Some(&messages),
-            signature: &signature.try_into().unwrap(),
-        })
-        .unwrap();
-        assert!(result);
     }
 
     // TODO: simulate the person visiting a website and proving something to the relying party
