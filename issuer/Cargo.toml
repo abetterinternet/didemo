@@ -1,10 +1,10 @@
 [package]
-name = "didemo_person"
+name = "didemo_issuer"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Simulation of a person in a digital identity deployment"
+description = "Simulation of an issuer in a digital identity deployment"
 
 [dependencies]
 anyhow.workspace = true

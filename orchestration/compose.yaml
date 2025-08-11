@@ -2,10 +2,10 @@
 
 services:
   person:
-    image: didemo-person:latest
+    image: didemo-actors:latest
     entrypoint: /didemo-person
     ports:
-      - "8000:8000"
+      - "8000:80"
     restart: always
     environment:
       CONFIG_FILE: /person-config-file
@@ -14,10 +14,10 @@ services:
       - person-config-file
 
   wallet:
-    image: didemo-person:latest
+    image: didemo-actors:latest
     entrypoint: /didemo-wallet
     ports:
-      - "8001:8000"
+      - "8001:80"
     restart: always
     environment:
       CONFIG_FILE: /wallet-config-file
@@ -25,8 +25,22 @@ services:
     configs:
       - wallet-config-file
 
+  issuer:
+    image: didemo-actors:latest
+    entrypoint: /didemo-issuer
+    ports:
+      - "8002:80"
+    restart: always
+    environment:
+      CONFIG_FILE: /issuer-config-file
+      RUST_LOG: info
+    configs:
+      - issuer-config-file
+
 configs:
   person-config-file:
     file: ../person/config/sample.yaml
   wallet-config-file:
     file: ../wallet/config/sample.yaml
+  issuer-config-file:
+    file: ../issuer/config/sample.yaml

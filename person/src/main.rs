@@ -1,23 +1,16 @@
-use anyhow::Context;
 use axum::{Json, Router, extract::State, routing::get};
-use clap::Parser;
+use didemo_common::{
+    config::{CommonConfiguration, Configuration},
+    router::actor_main,
+};
 use didemo_person::PresentedCredential;
 use serde::{Deserialize, Serialize};
-use std::{fs::File, io::BufReader, net::SocketAddr, path::PathBuf};
-
-#[derive(Parser, Debug)]
-#[command(name = "person", version, about)]
-struct Cli {
-    /// Path to configuration file.
-    #[arg(long, env = "CONFIG_FILE")]
-    config: PathBuf,
-}
 
 /// Configuration for a person.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct PersonConfiguration {
-    /// Address on which this server should listen for connections.
-    listen_address: SocketAddr,
+    #[serde(flatten)]
+    common: CommonConfiguration,
 
     /// The person's name.
     name: String,
@@ -26,33 +19,24 @@ struct PersonConfiguration {
     age: u32,
 }
 
+impl Configuration for PersonConfiguration {
+    fn common_configuration(&self) -> &CommonConfiguration {
+        &self.common
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    // TODO: richer tracing subscriber configuration
-    tracing_subscriber::fmt::init();
+    actor_main(|config| {
+        let routes = Router::new()
+            .route("/config", get(serve_config))
+            .route("/present", get(present))
+            .route("/wallet-config", get(wallet_config))
+            .with_state(config);
 
-    let cli = Cli::parse();
-
-    let config_file = File::open(cli.config).context("failed to open config file")?;
-
-    let config: PersonConfiguration = serde_yaml::from_reader(BufReader::new(config_file))
-        .context("failed to parse config file")?;
-
-    let listener = tokio::net::TcpListener::bind(&config.listen_address)
-        .await
-        .context(format!(
-            "failed to bind address {:?}",
-            config.listen_address
-        ))?;
-
-    let routes = Router::new()
-        .route("/config", get(serve_config))
-        .route("/present", get(present))
-        .with_state(config);
-
-    tracing::info!("started the person simulator");
-
-    axum::serve(listener, routes).await?;
+        Ok(("person", routes))
+    })
+    .await?;
 
     Ok(())
 }
@@ -70,4 +54,14 @@ async fn present(State(config): State<PersonConfiguration>) -> Json<PresentedCre
         name: config.name,
         age: config.age,
     })
+}
+
+async fn wallet_config() -> String {
+    tracing::info!("serving wallet config");
+    reqwest::get("http://issuer/config")
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap()
 }
