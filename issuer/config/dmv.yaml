@@ -1,0 +1,3 @@
+label: "dmv-1"
+credential_types:
+  - "DriversLicense"

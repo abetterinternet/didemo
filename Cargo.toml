@@ -16,12 +16,14 @@ version = "0.1.0"
 
 [workspace.dependencies]
 anyhow = "1"
-axum = "0.8.4"
+axum = { version = "0.8.4", features = ["macros"] }
 clap = { version = "4.5.40", features = ["cargo", "derive", "env"] }
 didemo_common = { version = "0.1.0", path = "common" }
 didemo_issuer = { version = "0.1.0", path = "issuer" }
 didemo_person = { version = "0.1.0", path = "person" }
 didemo_wallet = { version = "0.1.0", path = "wallet" }
+hex = "0.4.3"
+pairing_crypto = { version = "0.4.3", default-features = false, git = "https://github.com/mattrglobal/pairing_crypto", rev = "95443a21f5748901a6116ddc28d70c4ac96af37f" }
 reqwest = { version = "0.12.21", default-features = false, features = ["json", "rustls-tls"] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
